@@ -3,21 +3,25 @@ import json
 import os
 from dotenv import load_dotenv
 from datetime import date
-import sys
-sys.stdout.reconfigure(encoding='utf-8')
+#import sys
+#sys.stdout.reconfigure(encoding='utf-8')
+#load_dotenv(dotenv_path="./.env")
+from airflow.decorators import task
+from airflow.models import Variable
+    
 
-
-load_dotenv(dotenv_path="./.env")
-API_KEY = os.getenv("API_KEY")
-
-CHANNEL_HANDLE = "@MrBeast"
+API_KEY = Variable.get("API_KEY")
+CHANNEL_HANDLE = Variable.get("CHANNEL_HANDLE")
 maxResults = 50
 
+
+@task
 def get_playlist_id():
     try:
         url = f"https://youtube.googleapis.com/youtube/v3/channels?part=contentDetails&forHandle={CHANNEL_HANDLE}&key={API_KEY}"
-        response = requests.get(url)
-        data = response.json()
+        r = requests.get(url, timeout=30)
+        r.raise_for_status()
+        data = r.json()
         #print(json.dumps(data, indent=4))
         channel_items = data["items"][0]
         channel_playlistId= channel_items["contentDetails"]["relatedPlaylists"]["uploads"]
@@ -26,10 +30,9 @@ def get_playlist_id():
     except requests.exceptions.RequestException as e:
         raise e
     
-    base_url = f"https://youtube.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults={maxResults}&playlistId={playlistId}&key={API_KEY}" 
+    
 
-playlistId = get_playlist_id()
-
+@task
 def get_vedio_ids(playlistId):
     vedio_ids = []
     pageToken = None
@@ -56,11 +59,7 @@ def get_vedio_ids(playlistId):
     except requests.exceptions.RequestException as e:
         raise e
 
-def batch_list(vedio_id_lst, batch_size=50):
-    for vedio_id in range(0, len(vedio_id_lst), batch_size):
-        yield vedio_id_lst[vedio_id: vedio_id + batch_size]
-'https://youtube.googleapis.com/youtube/v3/videos?part=contentDetails&part=snippet&part=statistics&id=0e3GPea1Tyg&key=[YOUR_API_KEY]' 
-
+@task
 def extract_vedio_data(vedio_ids):
     extracted_data= []
     def batch_list(vedio_id_lst, batch_size=50):
@@ -95,17 +94,17 @@ def extract_vedio_data(vedio_ids):
     except requests.exceptions.RequestException as e:
         raise e 
     
-    
+@task    
 def save_to_json(extracted_data):
-    os.makedirs(".data", exist_ok=True)
-    file_path = f".data/YT_data_{date.today()}.json"
+    os.makedirs("data", exist_ok=True)
+    file_path = f"data/YT_data_{date.today()}.json"
     with open(file_path, "w", encoding="utf-8") as json_outfile:
         json.dump(extracted_data, json_outfile, indent=4, ensure_ascii=False)
     
-if __name__ == "__main__":
-    playlistId = get_playlist_id()
-    # >>> CHANGED: actually fetch and show the video ids
-    video_ids = get_vedio_ids(playlistId)    
-    vedio_data = extract_vedio_data(video_ids)# <<< CHANGED
-    save_to_json(vedio_data)
+#if __name__ == "__main__":
+    #playlistId = get_playlist_id()
+     #>>> CHANGED: actually fetch and show the video ids
+    #video_ids = get_vedio_ids(playlistId)    
+    #vedio_data = extract_vedio_data(video_ids)# <<< CHANGED
+    #save_to_json(vedio_data)
 
