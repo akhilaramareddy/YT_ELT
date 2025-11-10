@@ -96,8 +96,10 @@ def extract_vedio_data(vedio_ids):
     
 @task    
 def save_to_json(extracted_data):
+    ctx = get_current_context()
+    run_date = ctx["data_interval_start"].in_timezone("America/New_York").date()
     os.makedirs("data", exist_ok=True)
-    file_path = f"data/YT_data_{date.today()}.json"
+    file_path = f"data/YT_data_{run_date.isoformat()}.json"
     with open(file_path, "w", encoding="utf-8") as json_outfile:
         json.dump(extracted_data, json_outfile, indent=4, ensure_ascii=False)
     
